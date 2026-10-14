@@ -15,7 +15,8 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 type Movie struct {
@@ -44,10 +45,14 @@ func getDB() (*sql.DB, error) {
 			dbErr = errors.New("DATABASE_URL is not set")
 			return
 		}
-		db, dbErr = sql.Open("pgx", dsn)
-		if dbErr != nil {
+		cfg, err := pgx.ParseConfig(dsn)
+		if err != nil {
+			dbErr = err
 			return
 		}
+		// Supabase's transaction pooler (port 6543) does not support prepared statements.
+		cfg.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+		db = stdlib.OpenDB(*cfg)
 		db.SetMaxOpenConns(4)
 		db.SetConnMaxIdleTime(5 * time.Minute)
 	})
@@ -123,7 +128,7 @@ func listMovies(w http.ResponseWriter, r *http.Request) {
 	rows, err := conn.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
 		log.Println("query:", err)
-		writeErr(w, http.StatusInternalServerError, "database error")
+		writeErr(w, http.StatusInternalServerError, dbErrMsg(err))
 		return
 	}
 	defer rows.Close()
@@ -162,7 +167,7 @@ func getMovie(w http.ResponseWriter, r *http.Request, idStr string) {
 	}
 	if err != nil {
 		log.Println("query:", err)
-		writeErr(w, http.StatusInternalServerError, "database error")
+		writeErr(w, http.StatusInternalServerError, dbErrMsg(err))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": m})
@@ -186,6 +191,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// dbErrMsg hides driver errors unless DEBUG=1 is set in the environment.
+func dbErrMsg(err error) string {
+	if os.Getenv("DEBUG") == "1" {
+		return "database error: " + err.Error()
+	}
+	return "database error"
 }
 
 func clampInt(s string, def, min, max int) int {
