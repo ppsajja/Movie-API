@@ -77,6 +77,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := strings.TrimSuffix(r.URL.Path, "/")
+	// Vercel's rewrite replaces the path with /api/index; the original is passed in __path.
+	if p := r.URL.Query().Get("__path"); p != "" {
+		path = strings.TrimSuffix("/api/"+p, "/")
+	}
 	switch {
 	case path == "/api/health":
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
