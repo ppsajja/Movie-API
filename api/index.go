@@ -89,8 +89,6 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/api/health":
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	case path == "/api/debug":
-		debugInfo(w, r)
 	case path == "/api/movies":
 		listMovies(w, r)
 	case strings.HasPrefix(path, "/api/movies/"):
@@ -173,36 +171,6 @@ func getMovie(w http.ResponseWriter, r *http.Request, idStr string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": m})
-}
-
-// GET /api/debug — temporary: reports connection target (no password) and ping result.
-func debugInfo(w http.ResponseWriter, r *http.Request) {
-	out := map[string]any{"database_url_set": os.Getenv("DATABASE_URL") != ""}
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		if cfg, err := pgx.ParseConfig(dsn); err != nil {
-			out["parse_error"] = err.Error()
-		} else {
-			out["host"] = cfg.Host
-			out["port"] = cfg.Port
-			out["user"] = cfg.User
-			out["database"] = cfg.Database
-			out["password_set"] = cfg.Password != ""
-		}
-	}
-	conn, err := getDB()
-	if err != nil {
-		out["open_error"] = err.Error()
-	} else {
-		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
-		defer cancel()
-		var n int
-		if err := conn.QueryRowContext(ctx, "select count(*) from movies").Scan(&n); err != nil {
-			out["query_error"] = err.Error()
-		} else {
-			out["movies_count"] = n
-		}
-	}
-	writeJSON(w, http.StatusOK, out)
 }
 
 func setCORS(w http.ResponseWriter) {

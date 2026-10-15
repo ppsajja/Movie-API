@@ -14,7 +14,9 @@ Response: `{ "data": [...] }` หรือ `{ "error": "..." }`
 
 ## 1. ตั้งค่า DB บน Supabase
 1. สร้าง project → **SQL Editor** → วางและรัน `db/schema.sql`
-2. ไปที่ **Project Settings → Database → Connection string → URI** (เลือก *Transaction pooler*, port 6543) คัดลอกเก็บไว้
+2. กดปุ่ม **Connect** → เลือก **Transaction pooler** และ**เปิด toggle "Use IPv4 connection"** (จะได้ *Shared pooler*) → Type: URI → คัดลอกเก็บไว้
+   - host ต้องเป็น `aws-0-<region>.pooler.supabase.com:6543` และ user เป็น `postgres.<project-ref>`
+   - ห้ามใช้ `db.<project-ref>.supabase.co` (Direct / Dedicated pooler) เพราะเป็น IPv6 อย่างเดียว Vercel ต่อไม่ได้
 
 ## 2. รันในเครื่อง
 ```bash
@@ -28,7 +30,8 @@ curl localhost:8080/api/movies
 1. Push repo ขึ้น GitHub
 2. Vercel → **Add New Project** → import repo (Framework: Other)
 3. **Environment Variables** ใส่ `DATABASE_URL` (และ `CORS_ORIGINS` เป็น URL ของหน้าบ้าน ถ้าไม่อยากเปิด `*`)
-4. Deploy → ทดสอบ `https://<app>.vercel.app/api/movies`
+4. (ถ้าต้องดีบัก) ใส่ `DEBUG=1` เพื่อให้ response โชว์ error จริงจาก DB — ลบออกเมื่อเสร็จ
+5. Deploy → ทดสอบ `https://<app>.vercel.app/api/movies`
 
 ## ใช้จาก React
 ```js
